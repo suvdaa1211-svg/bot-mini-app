@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="mn">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>QR Scanner</title>
+  <script src="https://unpkg.com/html5-qrcode"></script>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 16px;
+      margin: 0;
+      background: #f7f7f7;
+    }
+    .box {
+      max-width: 480px;
+      margin: 0 auto;
+      background: white;
+      padding: 16px;
+      border-radius: 12px;
+    }
+    #reader {
+      width: 100%;
+      margin-top: 12px;
+    }
+    textarea {
+      width: 100%;
+      min-height: 140px;
+      margin-top: 12px;
+      padding: 10px;
+      box-sizing: border-box;
+    }
+    button {
+      margin-top: 12px;
+      padding: 12px 16px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+    .primary {
+      background: #2481cc;
+      color: white;
+    }
+    .secondary {
+      background: #ddd;
+    }
+  </style>
+</head>
+<body>
+  <div class="box">
+    <h2>QR код уншуулах</h2>
+    <p>Доорх камераа нээгээд QR кодоо уншуулна уу.</p>
+
+    <button class="primary" onclick="startScanner()">Scan QR</button>
+    <button class="secondary" onclick="stopScanner()">Stop</button>
+
+    <div id="reader"></div>
+
+    <textarea id="result" placeholder="QR-ээс гарсан текст энд харагдана"></textarea>
+
+    <button class="primary" onclick="sendToTelegram()">Bot руу илгээх</button>
+    <button class="primary" onclick="sendToApi()">API руу илгээх</button>
+  </div>
+
+  <script>
+    let scanner;
+    let scannedText = "";
+    const tg = window.Telegram.WebApp;
+
+    tg.ready();
+    tg.expand();
+
+    function startScanner() {
+      if (scanner) return;
+
+      scanner = new Html5Qrcode("reader");
+      scanner.start(
+        { facingMode: "environment" },
+        { fps: 10, qrbox: 220 },
+        (decodedText) => {
+          scannedText = decodedText;
+          document.getElementById("result").value = decodedText;
+          stopScanner();
+        },
+        (errorMessage) => {
+          // scan үед байнга дуудагддаг тул хоосон орхиж болно
+        }
+      ).catch((err) => {
+        alert("Камер нээж чадсангүй: " + err);
+      });
+    }
+
+    function stopScanner() {
+      if (scanner) {
+        scanner.stop().then(() => {
+          scanner.clear();
+          scanner = null;
+        }).catch(() => {
+          scanner = null;
+        });
+      }
+    }
+
+    function sendToTelegram() {
+      const text = document.getElementById("result").value.trim();
+      if (!text) {
+        alert("Эхлээд QR уншуулна уу.");
+        return;
+      }
+
+      tg.sendData(JSON.stringify({
+        type: "qr_raw_text",
+        value: text
+      }));
+
+      tg.close();
+    }
+
+    async function sendToApi() {
+      const text = document.getElementById("result").value.trim();
+      if (!text) {
+        alert("Эхлээд QR уншуулна уу.");
+        return;
+      }
+
+      try {
+        const res = await fetch("https://your-api.example.com/qr", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            qrText: text,
+            source: "telegram-mini-app"
+          })
+        });
+
+        if (!res.ok) throw new Error("API алдаа");
+        alert("API руу амжилттай илгээлээ.");
+      } catch (e) {
+        alert("Илгээхэд алдаа гарлаа: " + e.message);
+      }
+    }
+  </script>
+</body>
+</html>
